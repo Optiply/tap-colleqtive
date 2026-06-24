@@ -146,22 +146,21 @@ class ColleqtiveStream(Stream):
             payload = self._request(self.path, params=params).json()
             items = self._items_from_payload(payload)
 
-            logger.debug(
-                "%s page_start=%s items=%s total_count=%s next_page=%s",
-                self.name,
-                page_start,
-                len(items),
-                payload.get("total_count") if isinstance(payload, dict) else "?",
-                payload.get("next_page") if isinstance(payload, dict) else "?",
-            )
-            
             for row in items:
                 yield self._normalize_record(row)
 
-            if len(items) < self.page_size:
-                break
-
-            page_start += 1
+            # Use next_page from the API response when available; it is more
+            # reliable than comparing len(items) < page_size because the API
+            # can return fewer items than page_size on intermediate pages.
+            if isinstance(payload, dict) and "next_page" in payload:
+                next_page = payload.get("next_page")
+                if not next_page:
+                    break
+                page_start = int(next_page)
+            else:
+                if len(items) < self.page_size:
+                    break
+                page_start += 1
 
 
 class ProductsStream(ColleqtiveStream):
@@ -213,7 +212,6 @@ class StocksStream(ColleqtiveStream):
         replication_value = self._incremental_filter(context)
         if replication_value:
             params["last_stock_modified_datetime"] = replication_value
-        logger.debug("StocksStream._request_params: %s", params)
         return params
 
 
