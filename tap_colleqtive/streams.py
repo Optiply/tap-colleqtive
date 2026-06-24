@@ -146,6 +146,15 @@ class ColleqtiveStream(Stream):
             payload = self._request(self.path, params=params).json()
             items = self._items_from_payload(payload)
 
+            logger.debug(
+                "%s page_start=%s items=%s total_count=%s next_page=%s",
+                self.name,
+                page_start,
+                len(items),
+                payload.get("total_count") if isinstance(payload, dict) else "?",
+                payload.get("next_page") if isinstance(payload, dict) else "?",
+            )
+            
             for row in items:
                 yield self._normalize_record(row)
 
@@ -204,6 +213,7 @@ class StocksStream(ColleqtiveStream):
         replication_value = self._incremental_filter(context)
         if replication_value:
             params["last_stock_modified_datetime"] = replication_value
+        logger.debug("StocksStream._request_params: %s", params)
         return params
 
 
